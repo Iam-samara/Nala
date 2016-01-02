@@ -32,10 +32,42 @@ async function graphQLHandler(req, res, schema){
 }
 
 function Nala(schema,uri){
+  var type = databaseUri(uri);
+  if(type === 'mongodb') {
+    nalaMongo(schema, uri);
+  }
+  else if(type === 'postgres') {
+   return nalaSQL(schema, uri);
+  }
+}
+
+function databaseUri(uri) {
+  var type = '';
+  for(var i = 0; i < uri.length; i++) {
+    if(uri[i] === ":") {
+      return type;
+    }
+    type += uri[i];
+  }
+}
+
+function nalaMongo(schema, uri) {
+
+}
+
+function nalaSQL(schema, uri) {
+
   //TODO: eventually parse uri for different dbs
+  //console.log('testing out the schema', schema);
+  console.log('testing out fields', schema._mutationType._fields.presentMutator.type);
+  // if(uri === 'mongodb://emma:codesmith@ds037205.mongolab.com:37205/nala ') {
+  //   console.log('can detect the difference between uris');
+  // }
   var sequelize = new Sequelize(uri);
-  var QUERY_FIELDS = schema._schemaConfig.query._fields;
-  var MUTATION_FIELDS = schema._schemaConfig.mutation._fields;
+  var QUERY_FIELDS = schema._queryType._fields;
+  var MUTATION_FIELDS = schema._mutationType._fields.presentMutator.type;
+  //var QUERY_FIELDS = schema._schemaConfig.query._fields;
+  //var MUTATION_FIELDS = schema._schemaConfig.mutation._fields;
 
   //extract user defined GraphQL schemas that we want to convert into sequelize schemas
   //we filter out the non-user defined ones by comparing them to defaultNames
@@ -89,6 +121,7 @@ function Nala(schema,uri){
   return function(req, res) {
     graphQLHandler(req, res, schema);
   }
+
 }
 
 function initSequelizeModels(sequelizeSchemas, sequelize){
