@@ -9,6 +9,10 @@ import createDestroyers from './lib/CreateDestroyers';
 import createRelationCreators from './lib/RelationCreators';
 import createRelationRemovers from './lib/RelationRemovers';
 
+import mongoose from 'mongoose';
+
+
+
 import util from 'util';
 
 let app = express();
@@ -34,7 +38,7 @@ async function graphQLHandler(req, res, schema){
 function Nala(schema,uri){
   var type = databaseUri(uri);
   if(type === 'mongodb') {
-    nalaMongo(schema, uri);
+   return nalaMongo(schema, uri);
   }
   else if(type === 'postgres') {
    return nalaSQL(schema, uri);
@@ -50,16 +54,10 @@ function databaseUri(uri) {
     type += uri[i];
   }
 }
-
-function nalaMongo(schema, uri) {
-
-}
-
+/** handles graphql and schemas and connects to a sql database*/
 function nalaSQL(schema, uri) {
 
   //TODO: eventually parse uri for different dbs
-  //console.log('testing out the schema', schema);
-  console.log('testing out fields', schema._mutationType._fields.presentMutator.type);
   // if(uri === 'mongodb://emma:codesmith@ds037205.mongolab.com:37205/nala ') {
   //   console.log('can detect the difference between uris');
   // }
@@ -121,6 +119,31 @@ function nalaSQL(schema, uri) {
   return function(req, res) {
     graphQLHandler(req, res, schema);
   }
+}
+
+function nalaMongo(schema, uri) {
+  mongoose.connect(uri);
+  // var db = mongoose.connection;
+  // db.on('error', console.error.bind(console, 'connection error'));
+  // db.once('open', function() {
+  //   console.log('connected');
+  // })
+
+
+  //var QUERY_FIELDS = schema._queryType._fields.presetFunctions.type._fields;
+  //var MUTATION_FIELDS = schema._mutationType._fields.presentMutator.type._fields;
+  var QUERY_FIELDS = schema._queryType._fields;
+  var MUTATION_FIELDS = schema._mutationType._fields.presentMutator.type;
+
+  //extract user defined GraphQL schemas that we want to convert into sequelize schemas
+  //we filter out the non-user defined ones by comparing them to defaultNames
+  var defaultNames = ['String', 'query', 'Int', 'mutation', 'Boolean'];
+  var GraphQLModelNames = Object.keys(schema._typeMap).filter(function(elem) {
+    return defaultNames.indexOf(elem) < 0 && (elem[0] !== '_' || elem[1] !== '_');
+  });
+
+  var mongoSchemas = convertMongoSchema(GraphQLModelNames, schema._typeMap);
+  
 
 }
 
@@ -170,6 +193,31 @@ function convertSchema(modelNames, typeMap){
     return sequelizeArr;
 }
 
+
+function convertMongoSchema(modelNames, typeMap){
+  var mongoArr = [];
+  for(var i = 0; i < modelNames.length; i++) {
+    var model = typeMap[modelNames[i]],
+        fields = Object.keys(model._fields), //['name', 'age']
+        mongoSchema = {},
+        mongoFieldTypes = {String: String, Int: Number};
+   //expect ['name','age','friends']]f
+   var fieldObject = {};
+    for(var j = 0; j < fields.length; j++) {
+      //changed it to m=.name rather OfType
+      if (model._fields[fields[j]].type.name){
+        fieldObject[fields[j]] = {'type': model._fields[fields[j]].type.name};
+      }
+       else { //isn't list
+        fieldObject[fields[j]] = {'type': 'ObjectId', 'ref': model._fields[fields[j]].type.ofType.name};
+
+        }
+      mongoSchema[modelNames[i]] = fieldObject;
+    }
+    mongoArr.push(mongoSchema);
+  }
+  return mongoArr;
+}
 function initSequelizeRelations(relations, typeMap, mutationFields){
   for(var i = 0; i < relations.length; i++){
 

@@ -9,7 +9,7 @@ let app = express();
 app.use(express.static('client'));
 app.use(bodyParser.urlencoded({extended: false}));
 
-var graphQLHandler = Nala(Schema, 'postgres://vmheghxjgpisqb:LXBXlYU2Zh63ClWZMuDQutCL8O@ec2-54-204-8-138.compute-1.amazonaws.com:5432/d82jejkd94e7t9');
+var graphQLHandler = Nala(Schema, 'mongodb://emma:codesmith@ds037205.mongolab.com:37205/nala');
 
 app.post('/',graphQLHandler);
 
